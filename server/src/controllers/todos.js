@@ -1,20 +1,31 @@
 const { User: MongoUser } = require('../models/mongoModels')
 const { Todo } = require('../models/postgresModels')
 const { USE_BACKUP_DATABASE } = require('../constants')
+const {
+  createBackupTodo,
+  removeBackupTodo,
+  checkBackupTodo,
+  uncheckBackupTodo,
+} = require('../services/backupFunctions')
 
 exports.userTodos = async (req, res) => {
   let user = req.user
   try {
+    //get user todos from backup
     if (USE_BACKUP_DATABASE === 'true') {
       const foundUser = await MongoUser.findOne({ email: user.email })
       const todos = foundUser.todos
-      return res.status(200).json({ todos })
+      return res.json({ todos })
     }
 
+    //get todos from postgres
     const id = user.dataValues.id
-    const todos = await Todo.findAll({ where: { userId: id } })
+    const todos = await Todo.findAll({
+      where: { userId: id },
+      order: [['id', 'DESC']],
+    })
 
-    return res.status(200).json({ todos })
+    res.json({ todos })
   } catch (error) {
     console.log(error.message)
     res.status(500).json({
@@ -24,24 +35,21 @@ exports.userTodos = async (req, res) => {
 }
 
 exports.createTodo = async (req, res) => {
-  let user = req.user
-  const email = user.email
+  const { user } = req
+  const { email } = user
   const { text } = req.body
 
   try {
+    //in case we use backup db
     if (USE_BACKUP_DATABASE === 'true') {
-      await MongoUser.findOneAndUpdate(
-        email,
-        { $push: { todos: { text } } },
-        { new: true }
-      )
-      return res.status(200).json({ message: 'Todo added succefully' })
+      await createBackupTodo(email, text)
+      return res.json({ message: 'Todo added succefully' })
     }
 
+    //add todo to postgres and send response to user
     const id = user.dataValues.id
     await Todo.create({ text, userId: id })
-
-    return res.status(200).json({ message: 'Todo added succefully' })
+    res.json({ message: 'Todo added succefully' })
   } catch (error) {
     console.log(error.message)
     res.status(500).json({
@@ -51,20 +59,18 @@ exports.createTodo = async (req, res) => {
 }
 
 exports.removeTodo = async (req, res) => {
-  let user = req.user
-  let { email } = user
+  const { user } = req
+  const { email } = user
   const { id: todoId } = req.params
 
   try {
     if (USE_BACKUP_DATABASE === 'true') {
-      await MongoUser.findOneAndUpdate(email, {
-        $pull: { todos: { _id: todoId } },
-      })
-      return res.status(200).json({ message: 'Todo deleted succefully' })
+      await removeBackupTodo(email, todoId)
+      return res.json({ message: 'Todo deleted succefully' })
     }
 
     await Todo.destroy({ where: { id: todoId } })
-    return res.status(200).json({ message: 'Todo deleted succefully' })
+    return res.json({ message: 'Todo deleted succefully' })
   } catch (error) {
     console.log(error.message)
     res.status(500).json({
@@ -74,31 +80,18 @@ exports.removeTodo = async (req, res) => {
 }
 
 exports.checkTodo = async (req, res) => {
-  let user = req.user
-  let { email } = user
+  const user = req.user
+  const { email } = user
   const { id: todoId } = req.params
 
   try {
     if (USE_BACKUP_DATABASE === 'true') {
-      let foundUser = await MongoUser.findOne({ email })
-
-      const foundIndex = foundUser.todos.findIndex(
-        (element) => element._id == todoId
-      )
-
-      if (foundIndex === -1) {
-        return res.status(404).json({ message: 'Could not find the todo' })
-      }
-
-      foundUser.todos[foundIndex].completed = true
-      await foundUser.save()
-
-      return res.status(200).json({ message: 'Todo updated succefully' })
+      await checkBackupTodo(email, todoId)
+      return res.json({ message: 'Todo updated succefully' })
     }
 
     await Todo.update({ completed: true }, { where: { id: todoId } })
-
-    return res.status(200).json({ message: 'Todo updated succefully' })
+    return res.json({ message: 'Todo updated succefully' })
   } catch (error) {
     console.log(error.message)
     res.status(500).json({
@@ -108,31 +101,18 @@ exports.checkTodo = async (req, res) => {
 }
 
 exports.uncheckTodo = async (req, res) => {
-  let user = req.user
-  let { email } = user
+  const { user } = req
+  const { email } = user
   const { id: todoId } = req.params
 
   try {
     if (USE_BACKUP_DATABASE === 'true') {
-      let foundUser = await MongoUser.findOne({ email })
-
-      const foundIndex = foundUser.todos.findIndex(
-        (element) => element._id == todoId
-      )
-
-      if (foundIndex === -1) {
-        return res.status(404).json({ message: 'Could not find the todo' })
-      }
-
-      foundUser.todos[foundIndex].completed = false
-      await foundUser.save()
-
-      return res.status(200).json({ message: 'Todo updated succefully' })
+      await uncheckBackupTodo(email, todoId)
+      return res.json({ message: 'Todo updated succefully' })
     }
 
     await Todo.update({ completed: false }, { where: { id: todoId } })
-
-    return res.status(200).json({ message: 'Todo updated succefully' })
+    return res.json({ message: 'Todo updated succefully' })
   } catch (error) {
     console.log(error.message)
     res.status(500).json({

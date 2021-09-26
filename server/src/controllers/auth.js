@@ -3,23 +3,6 @@ const { User: MongoUser } = require('../models/mongoModels')
 const { hashPassword, generateJWT } = require('../helpers/functions')
 const { NODE_ENV } = require('../constants')
 
-// exports.displayUsers = async (req, res) => {
-//   try {
-//     const postgresUsers = await PostgresUser.findAll()
-//     const mongoUsers = await MongoUser.find()
-
-//     return res.status(200).json({
-//       postgresUsers: postgresUsers,
-//       mongoUsers: mongoUsers,
-//     })
-//   } catch (error) {
-//     console.log(error.message)
-//     res.status(500).json({
-//       message: 'An error occurred',
-//     })
-//   }
-// }
-
 exports.register = async (req, res) => {
   const { email, name, password } = req.body
   try {
@@ -48,10 +31,10 @@ exports.login = async (req, res) => {
     const token = await generateJWT(user)
 
     res
-      .status(201)
+      .status(200)
       .cookie('token', token, {
         httpOnly: true,
-        sameSite: 'None',
+        sameSite: NODE_ENV === 'production' ? 'None' : 'Lax',
         secure: NODE_ENV === 'production' ? true : false,
       })
       .json({
@@ -69,10 +52,10 @@ exports.login = async (req, res) => {
 exports.logout = async (req, res) => {
   try {
     res
-      .status(201)
+      .status(200)
       .clearCookie('token', {
         httpOnly: true,
-        sameSite: 'None',
+        sameSite: NODE_ENV === 'production' ? 'None' : 'Lax',
         secure: NODE_ENV === 'production' ? true : false,
       })
       .json({

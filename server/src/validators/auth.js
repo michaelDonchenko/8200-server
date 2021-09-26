@@ -44,7 +44,7 @@ const loginChecks = check('email').custom(async (value, { req }) => {
   let currectPassword = false
   const password = req.body.password
 
-  USE_BACKUP_DATABASE === 'false'
+  USE_BACKUP_DATABASE === 'true'
     ? (user = await MongoUser.findOne({ email: value }))
     : (user = await PostgresUser.findOne({ where: { email: value } }))
 
